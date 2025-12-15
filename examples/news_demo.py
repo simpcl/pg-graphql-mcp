@@ -12,225 +12,84 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pg_graphql_mcp import GraphQLClient
+from pg_graphql_mcp import graphql_query, execute_collection_query, list_tables
 
-def demo_news_queries():
+
+def demo_news_mcp_tools():
     """Demo of news query functionality"""
-    client = GraphQLClient()
 
     print("=== PostgreSQL GraphQL MCP - News Demo ===")
-    print("Use generic tools to query news data\n")
 
     # 1. Get latest news
     print("1. Get latest 3 news items:")
-    query = """
-    {
-      newsCollection(first: 3) {
-        edges {
-          node {
-            id
-            title
-            url
-            source
-            time
-            createdAt
-            updatedAt
-          }
-        }
-      }
-    }
-    """
 
-    try:
-        result = client.execute_query(query=query)
-        edges = result["data"]["newsCollection"]["edges"]
-
-        print(f"✓ Successfully retrieved {len(edges)} news items:\n")
-
-        for i, edge in enumerate(edges, 1):
-            node = edge["node"]
-            print(f"{i}. 📰 {node['title']}")
-            print(f"   🔗 Link: {node['url']}")
-            print(f"   📰 Source: {node['source']}")
-            print(f"   ⏰ Time: {node['time']}")
-            print()
-
-    except Exception as e:
-        print(f"✗ Query failed: {str(e)}")
-
-    # 2. Get total news count
-    print("2. Get total news count:")
-    count_query = """
-    {
-      newsCollection {
-        totalCount
-      }
-    }
-    """
-
-    try:
-        result = client.execute_query(query=count_query)
-        total = result["data"]["newsCollection"]["totalCount"]
-        print(f"✓ Total {total} news items in database")
-
-    except Exception as e:
-        print(f"✗ Query failed: {str(e)}")
-
-    # 3. Pagination query example
-    print("\n3. Pagination query example:")
-    pagination_query = """
-    {
-      newsCollection(first: 5) {
-        edges {
-          node {
-            id
-            title
-            source
-          }
-        }
-        pageInfo {
-          hasNextPage
-          hasPreviousPage
-          startCursor
-          endCursor
-        }
-        totalCount
-      }
-    }
-    """
-
-    try:
-        result = client.execute_query(query=pagination_query)
-        collection = result["data"]["newsCollection"]
-
-        print(f"✓ Current page: {len(collection['edges'])} records")
-        print(f"✓ Total: {collection['totalCount']}")
-        print(f"✓ Has next page: {collection['pageInfo']['hasNextPage']}")
-
-    except Exception as e:
-        print(f"✗ Pagination query failed: {str(e)}")
-
-    # 4. Demo client-side search
-    print("\n4. Search functionality demo (client-side filtering):")
-    search_keyword = "economy"
-    search_query = """
-    {
-      newsCollection(first: 50) {
-        edges {
-          node {
-            id
-            title
-            source
-            time
-          }
-        }
-      }
-    }
-    """
-
-    try:
-        result = client.execute_query(query=search_query)
-        edges = result["data"]["newsCollection"]["edges"]
-
-        # Client-side filtering
-        filtered_news = []
-        for edge in edges:
-            node = edge["node"]
-            if search_keyword.lower() in node['title'].lower():
-                filtered_news.append(node)
-
-        if filtered_news:
-            print(f"✓ Found {len(filtered_news)} news items about '{search_keyword}':")
-            for news in filtered_news[:5]:  # Show first 5
-                print(f"   • {news['title']} ({news['source']})")
-        else:
-            print(f"✗ No news found about '{search_keyword}'")
-
-    except Exception as e:
-        print(f"✗ Search failed: {str(e)}")
-
-
-def demo_custom_queries():
-    """Demo of custom queries"""
-    print("\n\n=== Custom Query Demo ===")
-
-    # Custom query: Get specific fields
-    print("1. Custom field selection:")
-    custom_query = """
-    {
-      newsCollection(first: 5) {
-        edges {
-          node {
-            id
-            title
-            source
-          }
-        }
-      }
-    }
-    """
-
-    try:
-        client = GraphQLClient()
-        result = client.execute_query(query=custom_query)
-
-        print("✓ Custom query successful:")
-        for edge in result["data"]["newsCollection"]["edges"]:
-            node = edge["node"]
-            print(f"   ID: {node['id']}, Title: {node['title']}, Source: {node['source']}")
-
-    except Exception as e:
-        print(f"✗ Custom query failed: {str(e)}")
-
-
-def demo_mcp_tools():
-    """Demo how to use MCP tool functions"""
-    print("\n\n=== MCP Tool Functions Usage Demo ===")
-
-    try:
-        # Import MCP tool functions
-        from pg_graphql_mcp import graphql_query, execute_collection_query, list_tables
-
-        # 1. Use generic query tool
-        print("1. Use graphql_query tool:")
-        query = """
-        {
-          newsCollection(first: 3) {
-            edges {
-              node {
-                id
-                title
-              }
-            }
-          }
-        }
+    def build_collection_query(collection_name, fields, first=10):
+        """Dynamically build collection query"""
+        fields_str = "\n        ".join(fields)
+        return f"""
+        query Get{collection_name.capitalize()} {{
+          {collection_name}Collection(first: {first}) {{
+            edges {{
+              node {{
+                {fields_str}
+              }}
+            }}
+          }}
+        }}
         """
 
-        data = json.loads(graphql_query(query=query))
-        if "error" in data:
-            print(f"✗ Error: {data['error']}")
+    # Example: Build news query
+    news_fields = ["id", "title", "url", "source", "time"]
+    news_query = build_collection_query("news", news_fields, first=3)
+
+    try:
+        result = json.loads(graphql_query(query=news_query))
+        if "error" in result:
+            print(f"✗ graphql_query tool failed: {result['error']}")
         else:
             print("✓ graphql_query tool executed successfully")
 
-        # 2. Use collection query tool
-        print("\n2. Use execute_collection_query tool:")
-        data = json.loads(execute_collection_query("news", first=3))
-        if "error" in data:
-            print(f"✗ Error: {data['error']}")
+            edges = result["data"]["newsCollection"]["edges"]
+
+            print(f"✓ Successfully retrieved {len(edges)} news items:\n")
+
+            for i, edge in enumerate(edges, 1):
+                node = edge["node"]
+                print(f"{i}. 📰 {node['title']}")
+                print(f"   🔗 Link: {node['url']}")
+                print(f"   📰 Source: {node['source']}")
+                print(f"   ⏰ Time: {node['time']}")
+                print()
+    except Exception as e:
+        print(f"✗ Query failed: {str(e)}")
+
+    # 2. Use execute_collection_query tool for pagination query
+    print("\n2. Use execute_collection_query tool:")
+
+    try:
+        result = json.loads(execute_collection_query("news", first=5))
+        if "error" in result:
+            error_msg = result["error"]
+            print(f"✗ Error: {error_msg}")
         else:
             print("✓ execute_collection_query tool executed successfully")
 
-        # 3. List all tables
-        print("\n3. Use list_tables tool:")
-        data = json.loads(list_tables())
-        if "error" in data:
-            print(f"✗ Error: {data['error']}")
-        else:
-            print("✓ list_tables tool executed successfully")
+        collection = result["data"]["newsCollection"]
 
-    except ImportError:
-        print("⚠️ MCP tool functions not available, please ensure running in correct environment")
+        if not collection["edges"]:
+            print("✓ No records found")
+        else:
+            print(f"✓ Current page has {len(collection['edges'])} records")
+            print(f"✓ First Cursor: {collection['edges'][0]['cursor']}")
+            print(f"✓ Last Cursor: {collection['edges'][-1]['cursor']}")
+
+        if not collection["pageInfo"]:
+            print("✓ Has no next page")
+        else:
+            print(f"✓ Has next page: {collection['pageInfo']['hasNextPage']}")
+
     except Exception as e:
-        print(f"✗ MCP tool demo failed: {str(e)}")
+        print(f"✗ Pagination query failed: {str(e)}")
 
 
 def interactive_news_query():
@@ -337,12 +196,14 @@ def interactive_news_query():
                     filtered_news = []
                     for edge in edges:
                         node = edge["node"]
-                        if keyword.lower() in node['title'].lower():
+                        if keyword.lower() in node["title"].lower():
                             filtered_news.append(node)
 
                     if filtered_news:
                         print(f"\nFound {len(filtered_news)} related news:")
-                        for i, news in enumerate(filtered_news[:10], 1):  # Show first 10
+                        for i, news in enumerate(
+                            filtered_news[:10], 1
+                        ):  # Show first 10
                             print(f"{i}. {news['title']}")
                             print(f"   Source: {news['source']} | Time: {news['time']}")
                             print()
@@ -364,17 +225,21 @@ def interactive_news_query():
 
 
 if __name__ == "__main__":
-    # Run all demos
-    demo_news_queries()
-    demo_custom_queries()
-    demo_mcp_tools()
+    demo_news_mcp_tools()
 
     # Ask whether to start interactive mode
     try:
+        print("\n" + "=" * 50)
+        print("📝 NOTE: The demos above show expected network errors")
+        print("   because no GraphQL server is running at the endpoint.")
+        print("   To test with actual data, start a GraphQL server")
+        print("   at http://127.0.0.1:3001/rpc/graphql")
+        print("=" * 50)
+
         response = input("\nStart interactive mode? (y/n): ").strip().lower()
-        if response == 'y':
+        if response == "y":
             interactive_news_query()
         else:
             print("\nProgram ended")
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
         print("\nProgram ended")

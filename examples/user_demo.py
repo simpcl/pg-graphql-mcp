@@ -12,63 +12,21 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pg_graphql_mcp import GraphQLClient
+from pg_graphql_mcp import list_tables
+
 
 def demo_available_tables():
-    """Demo of actually available table query functionality"""
-    client = GraphQLClient()
-
-    print("=== PostgreSQL GraphQL MCP - Available Tables Demo ===")
-    print("Query actually existing tables in database\n")
-
-    # 1. First check what tables are available
-    print("1. Discover available tables:")
-    introspection_query = """
-    {
-      __schema {
-        queryType {
-          fields {
-            name
-            type {
-              name
-              kind
-              ofType {
-                name
-                kind
-              }
-            }
-          }
-        }
-      }
-    }
-    """
-
-    try:
-        result = client.execute_query(query=introspection_query)
-
-        if "data" in result and "__schema" in result["data"]:
-            fields = result["data"]["__schema"]["queryType"]["fields"]
-            collections = []
-
-            for field in fields:
-                field_name = field["name"]
-                field_type = field["type"]
-
-                # Check if field name ends with Collection
-                if field_name.endswith("Collection"):
-                    collections.append(field_name)
-                # Or check if type name contains Connection
-                elif field_type.get("name") and "Connection" in field_type["name"]:
-                    collections.append(field_name)
-
-            print(f"✓ Found {len(collections)} collections:")
-            for collection in sorted(collections):
-                print(f"   • {collection}")
-
-            return collections
-
-    except Exception as e:
-        print(f"✗ Table check failed: {str(e)}")
+    data = json.loads(list_tables())
+    if "error" in data:
+        print(f"✗ Error: {data['error']}")
         return []
+    else:
+        print("✓ list_tables tool executed successfully")
+        tables = []
+        for table in data["tables"]:
+            print(f"   • {table['name']} - {table['description']}")
+            tables.append(table["name"])
+        return tables
 
 
 def demo_account_queries():
@@ -187,103 +145,21 @@ def demo_blog_queries():
         print(f"✗ Query failed: {str(e)}")
 
 
-def demo_query_builder():
-    """Demo of query builder functionality"""
-    print("\n\n=== Query Builder Demo ===")
-
-    # Demo how to dynamically build queries
-    def build_collection_query(collection_name, fields, first=10):
-        """Dynamically build collection query"""
-        fields_str = "\n        ".join(fields)
-        return f"""
-        query Get{collection_name.capitalize()} {{
-          {collection_name}Collection(first: {first}) {{
-            edges {{
-              node {{
-                {fields_str}
-              }}
-            }}
-            totalCount
-          }}
-        }}
-        """
-
-    client = GraphQLClient()
-
-    # Example: Build news query
-    news_fields = ["id", "title", "source", "time"]
-    news_query = build_collection_query("news", news_fields, first=3)
-
-    print("1. Dynamically built news query:")
-    try:
-        result = client.execute_query(query=news_query)
-        if "data" in result and "newsCollection" in result["data"]:
-            edges = result["data"]["newsCollection"]["edges"]
-            print(f"✓ Query successful, got {len(edges)} records")
-
-            for edge in edges:
-                node = edge["node"]
-                title = node.get('title', 'N/A')
-                source = node.get('source', 'N/A')
-                print(f"   • {title} ({source})")
-        else:
-            print("✗ Query did not return expected results")
-
-    except Exception as e:
-        print(f"✗ Query failed: {str(e)}")
-
-
-def demo_error_handling():
-    """Demo of error handling"""
-    print("\n\n=== Error Handling Demo ===")
-
-    client = GraphQLClient()
-
-    # 1. Invalid GraphQL query
-    print("1. Test invalid query:")
-    invalid_query = """
-    {
-      invalidTableCollection {
-        edges {
-          node {
-            id
-          }
-        }
-      }
-    }
-    """
-
-    try:
-        result = client.execute_query(query=invalid_query)
-        print("✗ Unexpected success")
-    except Exception as e:
-        print(f"✓ Correctly caught error: {str(e)[:100]}...")
-
-    # 2. Network error test (using invalid endpoint)
-    print("\n2. Test network error:")
-    invalid_client = GraphQLClient("http://127.0.0.1:9999/invalid")
-
-    try:
-        result = invalid_client.execute_query(query="{ __typename }")
-        print("✗ Unexpected success")
-    except Exception as e:
-        print(f"✓ Correctly caught network error: {str(e)[:100]}...")
-
-
 if __name__ == "__main__":
+    print("📝 NOTE: This demo expects a GraphQL server running at")
+    print("         http://127.0.0.1:3001/rpc/graphql")
+    print("         Network errors are normal if no server is running.")
+    print()
+
     # 1. First discover available tables
     available_tables = demo_available_tables()
 
     # 2. Demo based on available tables
-    if "accountCollection" in available_tables:
+    if "account" in available_tables:
         demo_account_queries()
 
-    if "blogCollection" in available_tables or "blogPostCollection" in available_tables:
+    if "blog" in available_tables or "blogPost" in available_tables:
         demo_blog_queries()
-
-    # 3. Other demos
-    demo_query_builder()
-    demo_error_handling()
 
     print("\n=== Demo Complete ===")
     print("✅ Has shown actually available database tables and query functionality")

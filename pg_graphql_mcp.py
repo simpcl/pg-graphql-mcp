@@ -28,7 +28,7 @@ class GraphQLClient:
         self,
         query: str,
         variables: Optional[Dict[str, Any]] = None,
-        operation_name: Optional[str] = None
+        operation_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute GraphQL query
@@ -44,37 +44,36 @@ class GraphQLClient:
         payload = {
             "query": query,
             "variables": variables or {},
-            "operationName": operation_name
+            "operationName": operation_name,
         }
 
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
         try:
             # Prepare request data
-            data = json.dumps(payload).encode('utf-8')
+            data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
-                self.endpoint,
-                data=data,
-                headers=headers,
-                method='POST'
+                self.endpoint, data=data, headers=headers, method="POST"
             )
 
             # Send request
             with urllib.request.urlopen(req, timeout=30) as response:
                 if response.status != 200:
-                    error_data = response.read().decode('utf-8')
+                    error_data = response.read().decode("utf-8")
                     raise Exception(f"HTTP Error: {response.status} - {error_data}")
 
                 # Parse response
-                response_data = response.read().decode('utf-8')
+                response_data = response.read().decode("utf-8")
                 result = json.loads(response_data)
 
                 # Check GraphQL errors
                 if "errors" in result:
-                    error_msg = "; ".join([err.get("message", "Unknown Error") for err in result["errors"]])
+                    error_msg = "; ".join(
+                        [
+                            err.get("message", "Unknown Error")
+                            for err in result["errors"]
+                        ]
+                    )
                     raise Exception(f"GraphQL Error: {error_msg}")
 
                 return result
@@ -87,10 +86,9 @@ class GraphQLClient:
 
 # Common MCP Tool Functions
 
+
 def graphql_query(
-    query: str,
-    variables: Optional[str] = None,
-    operation_name: Optional[str] = None
+    query: str, variables: Optional[str] = None, operation_name: Optional[str] = None
 ) -> str:
     """
     Execute generic GraphQL query
@@ -110,14 +108,16 @@ def graphql_query(
             try:
                 parsed_variables = json.loads(variables)
             except json.JSONDecodeError:
-                return json.dumps({"error": "Variables JSON format error"}, ensure_ascii=False, indent=2)
+                return json.dumps(
+                    {"error": "Variables JSON format error"},
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
         # Execute query
         client = GraphQLClient()
         result = client.execute_query(
-            query=query,
-            variables=parsed_variables,
-            operation_name=operation_name
+            query=query, variables=parsed_variables, operation_name=operation_name
         )
 
         return json.dumps(result, ensure_ascii=False, indent=2)
@@ -180,6 +180,7 @@ def list_tables() -> str:
         queryType {
           fields {
             name
+            description
             type {
               kind
               name
@@ -205,22 +206,22 @@ def list_tables() -> str:
 
             for field in query_fields:
                 # Filter out GraphQL built-in fields
-                if not field["name"].startswith("__"):
-                    field_type = field["type"]
-                    if field_type.get("ofType"):
-                        field_type_name = field_type["ofType"].get("name", "")
-                        if field_type_name.endswith("Collection"):
-                            table_name = field["name"]
-                            tables.append({
+                field_name = field["name"]
+                if not field_name.startswith("__"):
+                    table_name = ""
+                    if field_name.endswith("Collection"):
+                        table_name = field_name[:-10]
+                        tables.append(
+                            {
                                 "name": table_name,
                                 "type": "collection",
-                                "description": field.get("description", "")
-                            })
+                                "description": field.get("description", ""),
+                            }
+                        )
 
-            return json.dumps({
-                "tables": tables,
-                "total": len(tables)
-            }, ensure_ascii=False, indent=2)
+            return json.dumps(
+                {"tables": tables, "total": len(tables)}, ensure_ascii=False, indent=2
+            )
 
         return result
 
@@ -277,7 +278,7 @@ def execute_collection_query(
     first: int = 10,
     after: Optional[str] = None,
     where: Optional[str] = None,
-    order_by: Optional[str] = None
+    order_by: Optional[str] = None,
 ) -> str:
     """
     Execute collection query (generic query method)
@@ -293,6 +294,7 @@ def execute_collection_query(
         JSON format query result
     """
     # Build basic query
+    # Note: totalCount may not be supported by all GraphQL schemas
     query = f"""
     query Get{collection_name.capitalize()}Collection($first: Int, $after: String) {{
       {collection_name}Collection(first: $first, after: $after) {{
@@ -305,10 +307,9 @@ def execute_collection_query(
         pageInfo {{
           hasNextPage
           hasPreviousPage
-          startCursor
           endCursor
+          startCursor
         }}
-        totalCount
       }}
     }}
     """
@@ -325,12 +326,12 @@ def execute_collection_query(
         return json.dumps({"error": str(e)}, ensure_ascii=False, indent=2)
 
 
-# Register as MCP tools
-graphql_query = mcp.tool()(graphql_query)
-introspection_query = mcp.tool()(introspection_query)
-list_tables = mcp.tool()(list_tables)
-get_table_info = mcp.tool()(get_table_info)
-execute_collection_query = mcp.tool()(execute_collection_query)
+# Register as MCP tools - these will be wrapped but original functions remain available
+_mcp_graphql_query = mcp.tool()(graphql_query)
+_mcp_introspection_query = mcp.tool()(introspection_query)
+_mcp_list_tables = mcp.tool()(list_tables)
+_mcp_get_table_info = mcp.tool()(get_table_info)
+_mcp_execute_collection_query = mcp.tool()(execute_collection_query)
 
 
 if __name__ == "__main__":
