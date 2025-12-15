@@ -8,7 +8,7 @@ import json
 import urllib.request
 import urllib.error
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from fastmcp import FastMCP
 
 # Create MCP server instance
@@ -276,6 +276,7 @@ def get_table_info(table_name: str) -> str:
 def execute_collection_query(
     collection_name: str,
     first: int = 10,
+    fields: Optional[List[str]] = None,
     after: Optional[str] = None,
     where: Optional[str] = None,
     order_by: Optional[str] = None,
@@ -286,6 +287,7 @@ def execute_collection_query(
     Args:
         collection_name: Collection/table name
         first: Number of records to return (default 10)
+        fields: List of fields to return (optional)
         after: Cursor pagination parameter (optional)
         where: GraphQL where condition (optional)
         order_by: Sorting condition (optional)
@@ -294,13 +296,18 @@ def execute_collection_query(
         JSON format query result
     """
     # Build basic query
-    # Note: totalCount may not be supported by all GraphQL schemas
+    if fields is None:
+        fields = ["id"]
+    else:
+        fields += ["id"]
+    fields_str = "\n        ".join(fields)
+
     query = f"""
     query Get{collection_name.capitalize()}Collection($first: Int, $after: String) {{
       {collection_name}Collection(first: $first, after: $after) {{
         edges {{
           node {{
-            id
+            {fields_str}
           }}
           cursor
         }}

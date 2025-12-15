@@ -20,30 +20,15 @@ def demo_news_mcp_tools():
 
     print("=== PostgreSQL GraphQL MCP - News Demo ===")
 
-    # 1. Get latest news
     print("1. Get latest 3 news items:")
-
-    def build_collection_query(collection_name, fields, first=10):
-        """Dynamically build collection query"""
-        fields_str = "\n        ".join(fields)
-        return f"""
-        query Get{collection_name.capitalize()} {{
-          {collection_name}Collection(first: {first}) {{
-            edges {{
-              node {{
-                {fields_str}
-              }}
-            }}
-          }}
-        }}
-        """
 
     # Example: Build news query
     news_fields = ["id", "title", "url", "source", "time"]
-    news_query = build_collection_query("news", news_fields, first=3)
 
     try:
-        result = json.loads(graphql_query(query=news_query))
+        result = json.loads(
+            execute_collection_query("news", fields=news_fields, first=3)
+        )
         if "error" in result:
             print(f"✗ graphql_query tool failed: {result['error']}")
         else:
@@ -62,34 +47,6 @@ def demo_news_mcp_tools():
                 print()
     except Exception as e:
         print(f"✗ Query failed: {str(e)}")
-
-    # 2. Use execute_collection_query tool for pagination query
-    print("\n2. Use execute_collection_query tool:")
-
-    try:
-        result = json.loads(execute_collection_query("news", first=5))
-        if "error" in result:
-            error_msg = result["error"]
-            print(f"✗ Error: {error_msg}")
-        else:
-            print("✓ execute_collection_query tool executed successfully")
-
-        collection = result["data"]["newsCollection"]
-
-        if not collection["edges"]:
-            print("✓ No records found")
-        else:
-            print(f"✓ Current page has {len(collection['edges'])} records")
-            print(f"✓ First Cursor: {collection['edges'][0]['cursor']}")
-            print(f"✓ Last Cursor: {collection['edges'][-1]['cursor']}")
-
-        if not collection["pageInfo"]:
-            print("✓ Has no next page")
-        else:
-            print(f"✓ Has next page: {collection['pageInfo']['hasNextPage']}")
-
-    except Exception as e:
-        print(f"✗ Pagination query failed: {str(e)}")
 
 
 def interactive_news_query():
