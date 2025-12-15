@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "pg-graphql": {
+      "command": "python3",
+      "args": ["/Users/simpcl/work/simpcl/pg-graphql-mcp/pg_graphql_mcp.py"],
+      "env": {}
+    }
+  }
+}
